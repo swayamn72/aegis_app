@@ -16,6 +16,61 @@ class ApiService {
     return prefs.getString('token');
   }
 
+  static Future<Map<String, dynamic>> signup(
+      String email, String password, String username) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/players/signup'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'username': username,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'error': true,
+          'message': jsonDecode(response.body)['message'] ?? 'Signup failed'
+        };
+      }
+    } catch (e) {
+      return {'error': true, 'message': 'Network error: $e'};
+    }
+  }
+
+  // LOGIN
+  static Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/players/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['token']);
+        return {'error': false, 'data': data};
+      } else {
+        return {
+          'error': true,
+          'message': data['message'] ?? 'Login failed. Try again.'
+        };
+      }
+    } catch (e) {
+      return {'error': true, 'message': 'Network error: $e'};
+    }
+  }
+
   // GET Profile
   static Future<Map<String, dynamic>> getProfile() async {
     try {
@@ -100,32 +155,4 @@ class ApiService {
     }
   }
 
-  // LOGIN
-  static Future<Map<String, dynamic>> login(String email, String password) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/players/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        return {'error': false, 'data': data};
-      } else {
-        return {
-          'error': true,
-          'message': data['message'] ?? 'Login failed. Try again.'
-        };
-      }
-    } catch (e) {
-      return {'error': true, 'message': 'Network error: $e'};
-    }
-  }
 }

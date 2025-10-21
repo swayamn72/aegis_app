@@ -290,8 +290,8 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
             child: Column(
               children: [
                 // Profile Header - Compact
-                Transform.translate(
-                  offset: const Offset(0, -40),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
                   child: Column(
                     children: [
                       // Profile Picture

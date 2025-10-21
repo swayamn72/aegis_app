@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'services/api_service.dart';
 
 class AegisSignupPage extends StatefulWidget {
   const AegisSignupPage({super.key});
@@ -15,17 +15,7 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _ownerNameController = TextEditingController();
-  final _orgNameController = TextEditingController();
-  final _countryController = TextEditingController();
-  final _headquartersController = TextEditingController();
-  final _contactPhoneController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _websiteController = TextEditingController();
-  final _ownerInstagramController = TextEditingController();
-  final _establishedDateController = TextEditingController();
 
-  String _selectedRole = '';
   bool _showPassword = false;
   bool _isLoading = false;
   Map<String, String> _errors = {};
@@ -58,43 +48,10 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _ownerNameController.dispose();
-    _orgNameController.dispose();
-    _countryController.dispose();
-    _headquartersController.dispose();
-    _contactPhoneController.dispose();
-    _descriptionController.dispose();
-    _websiteController.dispose();
-    _ownerInstagramController.dispose();
-    _establishedDateController.dispose();
     _particleController.dispose();
     _mascotController.dispose();
     _glowController.dispose();
     super.dispose();
-  }
-
-  void _pickDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1800),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFFf97316), // orange-500
-              surface: Color(0xFF1f2937),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      _establishedDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-    }
   }
 
   bool _validateForm() {
@@ -102,51 +59,16 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
       _errors = {};
     });
 
-    if (_selectedRole.isEmpty) {
+    if (_usernameController.text.trim().isEmpty) {
       setState(() {
-        _errors['role'] = 'Please select your role';
+        _errors['username'] = 'Username is required';
       });
       return false;
-    }
-
-    if (_selectedRole == 'player') {
-      if (_usernameController.text.trim().isEmpty) {
-        setState(() {
-          _errors['username'] = 'Username is required';
-        });
-        return false;
-      } else if (_usernameController.text.trim().length < 3) {
-        setState(() {
-          _errors['username'] = 'Username must be at least 3 characters';
-        });
-        return false;
-      }
-    }
-
-    if (_selectedRole == 'organization') {
-      if (_ownerNameController.text.trim().isEmpty) {
-        setState(() {
-          _errors['ownerName'] = 'Owner name is required';
-        });
-        return false;
-      }
-      if (_orgNameController.text.trim().isEmpty) {
-        setState(() {
-          _errors['orgName'] = 'Organization name is required';
-        });
-        return false;
-      } else if (_orgNameController.text.trim().length < 3) {
-        setState(() {
-          _errors['orgName'] = 'Organization name must be at least 3 characters';
-        });
-        return false;
-      }
-      if (_countryController.text.trim().isEmpty) {
-        setState(() {
-          _errors['country'] = 'Country is required';
-        });
-        return false;
-      }
+    } else if (_usernameController.text.trim().length < 3) {
+      setState(() {
+        _errors['username'] = 'Username must be at least 3 characters';
+      });
+      return false;
     }
 
     if (_emailController.text.trim().isEmpty) {
@@ -176,20 +98,73 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
     return true;
   }
 
-  void _handleSubmit() {
+  void _handleSubmit() async {
     if (!_validateForm()) return;
 
     setState(() {
       _isLoading = true;
     });
 
-    // TODO: Implement API call
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final result = await ApiService.signup(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _usernameController.text.trim(),
+      );
+
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
-      // Navigate or show success message
-    });
+
+      if (result['error'] == true) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Signup failed'),
+            backgroundColor: const Color(0xFFef4444),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      } else {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Account created successfully! 🎉'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+
+        // Navigate to login page
+        Navigator.pushReplacementNamed(context, '/login');
+        // Or pop back to login: Navigator.pop(context);
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred: $e'),
+          backgroundColor: const Color(0xFFef4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -352,11 +327,9 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              _selectedRole == 'organization'
-                  ? "Register your organization and compete at the highest level."
-                  : "Create your Aegis profile and compete with the world's best gamers. Your legendary journey starts here.",
-              style: const TextStyle(
+            const Text(
+              "Create your Aegis profile and compete with the world's best gamers. Your legendary journey starts here.",
+              style: TextStyle(
                 fontSize: 18,
                 color: Color(0xFFd1d5db),
                 height: 1.5,
@@ -619,116 +592,14 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
             ),
             const SizedBox(height: 32),
 
-            // Role Selection
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'I am a...',
-                  style: TextStyle(
-                    color: Color(0xFFd1d5db),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildRoleButton(
-                        icon: Icons.person,
-                        label: 'Player',
-                        role: 'player',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildRoleButton(
-                        icon: Icons.business,
-                        label: 'Organization',
-                        role: 'organization',
-                      ),
-                    ),
-                  ],
-                ),
-                if (_errors['role'] != null)
-                  _buildErrorMessage(_errors['role']!),
-              ],
+            // Username Field
+            _buildTextField(
+              controller: _usernameController,
+              icon: Icons.person,
+              hintText: 'Choose a username',
+              error: _errors['username'],
             ),
             const SizedBox(height: 20),
-
-            // Player Fields
-            if (_selectedRole == 'player') ...[
-              _buildTextField(
-                controller: _usernameController,
-                icon: Icons.person,
-                hintText: 'Choose a username',
-                error: _errors['username'],
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Organization Fields
-            if (_selectedRole == 'organization') ...[
-              _buildTextField(
-                controller: _ownerNameController,
-                icon: Icons.person,
-                hintText: 'Owner name',
-                error: _errors['ownerName'],
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _orgNameController,
-                icon: Icons.business,
-                hintText: 'Organization name',
-                error: _errors['orgName'],
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _countryController,
-                icon: Icons.location_on,
-                hintText: 'Country',
-                error: _errors['country'],
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _headquartersController,
-                icon: Icons.location_city,
-                hintText: 'Headquarters (optional)',
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _contactPhoneController,
-                icon: Icons.phone,
-                hintText: 'Contact phone (optional)',
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _descriptionController,
-                icon: Icons.description,
-                hintText: 'Brief description (optional)',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _ownerInstagramController,
-                icon: Icons.camera_alt,
-                hintText: 'Owner Instagram (optional)',
-              ),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: _pickDate,
-                child: AbsorbPointer(
-                  child: _buildTextField(
-                    controller: _establishedDateController,
-                    icon: Icons.calendar_today,
-                    hintText: 'Established date (optional)',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
 
             // Email Field
             _buildTextField(
@@ -755,39 +626,6 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
               error: _errors['password'],
             ),
             const SizedBox(height: 24),
-
-            // Organization Info Box
-            if (_selectedRole == 'organization')
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3b82f6).withOpacity(0.1),
-                  border: Border.all(
-                    color: const Color(0xFF3b82f6).withOpacity(0.2),
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Color(0xFF60a5fa),
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        "Your organization registration will be reviewed by our admin team. You'll receive an email once approved.",
-                        style: TextStyle(
-                          color: Color(0xFF60a5fa),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (_selectedRole == 'organization') const SizedBox(height: 24),
 
             // Create Account Button
             SizedBox(
@@ -990,64 +828,6 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
     );
   }
 
-  Widget _buildRoleButton({
-    required IconData icon,
-    required String label,
-    required String role,
-  }) {
-    final isSelected = _selectedRole == role;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedRole = role;
-          _errors.remove('role');
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFFf97316).withOpacity(0.2)
-              : const Color(0xFF111827).withOpacity(0.3),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFFf97316)
-                : Colors.grey.shade600.withOpacity(0.5),
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isSelected
-              ? [
-            BoxShadow(
-              color: const Color(0xFFf97316).withOpacity(0.3),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ]
-              : null,
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.grey,
-              size: 24,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required IconData icon,
@@ -1056,7 +836,6 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
     bool showPassword = false,
     VoidCallback? onTogglePassword,
     TextInputType? keyboardType,
-    int maxLines = 1,
     String? error,
   }) {
     return Column(
@@ -1077,7 +856,6 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
             controller: controller,
             obscureText: isPassword && !showPassword,
             keyboardType: keyboardType,
-            maxLines: maxLines,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
               filled: true,
@@ -1121,9 +899,9 @@ class _AegisSignupPageState extends State<AegisSignupPage> with TickerProviderSt
                   width: 2,
                 ),
               ),
-              contentPadding: EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 20,
-                vertical: maxLines > 1 ? 20 : 20,
+                vertical: 20,
               ),
             ),
           ),

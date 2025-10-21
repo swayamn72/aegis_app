@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'aegis_main_scaffold.dart'; // 👈 Import your main scaffold
 
 void main() {
   runApp(const AegisApp());
@@ -16,7 +17,13 @@ class AegisApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0E1117),
       ),
-      home: const LoginScreen(), // start with login screen
+
+      // 👇 Instead of home:, use routes + initialRoute
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/main': (context) => const AegisMainScaffold(),
+      },
     );
   }
 }

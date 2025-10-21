@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'signup_screen.dart';
 import 'aegismyprofile_screen.dart';
+import 'aegis_main_scaffold.dart';
 import 'services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -86,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const AegisMyProfileScreen()),
+        MaterialPageRoute(builder: (context) => const AegisMainScaffold()),
       );
     }
   }

@@ -14,14 +14,15 @@ class AegisMyProfileScreen extends StatefulWidget {
 }
 
 class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
   Map<String, dynamic>? _teamData;
   List<dynamic> _connections = [];
   bool _copied = false;
-
+  @override
+  bool get wantKeepAlive => true;
   @override
   void initState() {
     super.initState();
@@ -193,6 +194,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_isLoading) {
       return Scaffold(
         backgroundColor: const Color(0xFF09090b),

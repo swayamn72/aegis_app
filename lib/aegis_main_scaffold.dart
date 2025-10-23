@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'aegismyprofile_screen.dart';
+import 'tournament_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
@@ -29,10 +30,10 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
   // Your screen widgets will go here
   final List<Widget> _screens = [
     const FeedScreen(),
-    const TournamentsScreen(),
+    const TournamentScreen(),
     const TeamUpScreen(),
     const MessagesScreen(),
-    const AegisMyProfileScreen(),
+    AegisMyProfileScreen(),
   ];
 
   @override
@@ -42,7 +43,10 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
       backgroundColor: const Color(0xFF09090b),
       appBar: _buildAppBar(),
       drawer: _buildDrawer(),
-      body: _screens[_currentIndex],
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }

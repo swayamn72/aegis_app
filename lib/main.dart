@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
-import 'aegis_main_scaffold.dart'; // 👈 Import your main scaffold
+import 'aegis_main_scaffold.dart';
 
 void main() {
   runApp(const AegisApp());

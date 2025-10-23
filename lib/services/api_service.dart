@@ -16,8 +16,8 @@ class ApiService {
     return prefs.getString('token');
   }
 
-  static Future<Map<String, dynamic>> signup(
-      String email, String password, String username) async {
+  static Future<Map<String, dynamic>> signup(String email, String password,
+      String username) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/players/signup'),
@@ -43,7 +43,8 @@ class ApiService {
   }
 
   // LOGIN
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(String email,
+      String password) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/players/login'),
@@ -155,4 +156,49 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getTournaments({
+    int page = 1,
+    int limit = 50,
+    String? game,
+    String? region,
+    String? status,
+    String? tier,
+  }) async {
+    try {
+      // Build query parameters
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+
+      if (game != null && game.isNotEmpty) queryParams['game'] = game;
+      if (region != null && region.isNotEmpty) queryParams['region'] = region;
+      if (status != null && status.isNotEmpty) queryParams['status'] = status;
+      if (tier != null && tier.isNotEmpty) queryParams['tier'] = tier;
+
+      final uri = Uri.parse('$baseUrl/tournaments/all').replace(
+        queryParameters: queryParams,
+      );
+
+      final response = await http.get(uri);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'error': false,
+          'tournaments': data['tournaments'],
+          'liveTournaments': data['liveTournaments'],
+          'upcomingTournaments': data['upcomingTournaments'],
+          'pagination': data['pagination'],
+        };
+      } else {
+        return {
+          'error': true,
+          'message': data['message'] ?? data['error'] ?? 'Failed to fetch tournaments',
+        };
+      }
+    } catch (e) {
+      return {'error': true, 'message': 'Network error: $e'};
+    }
+  }
 }

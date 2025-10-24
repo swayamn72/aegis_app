@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'aegismyprofile_screen.dart';
 import 'tournament_screen.dart';
+import 'settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-
 
 // Main Navigation Scaffold
 class AegisMainScaffold extends StatefulWidget {
@@ -16,24 +15,23 @@ class AegisMainScaffold extends StatefulWidget {
 class _AegisMainScaffoldState extends State<AegisMainScaffold> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('userData');
 
-
-    // Navigate to login screen
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
-  // Your screen widgets will go here
+
   final List<Widget> _screens = [
     const FeedScreen(),
     const TournamentScreen(),
     const TeamUpScreen(),
     const MessagesScreen(),
-    AegisMyProfileScreen(),
+    const AegisMyProfileScreen(),
   ];
 
   @override
@@ -43,15 +41,11 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
       backgroundColor: const Color(0xFF09090b),
       appBar: _buildAppBar(),
       drawer: _buildDrawer(),
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
-        ),
+      body: _screens[_currentIndex],
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // Custom App Bar
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: const Color(0xFF18181b),
@@ -63,8 +57,8 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
       title: ShaderMask(
         shaderCallback: (bounds) => const LinearGradient(
           colors: [
-            Color(0xFF06b6d4), // cyan
-            Color(0xFF7c3aed), // purple
+            Color(0xFF06b6d4),
+            Color(0xFF7c3aed),
           ],
         ).createShader(bounds),
         child: const Text(
@@ -77,14 +71,12 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
         ),
       ),
       actions: [
-        // Search Icon
         IconButton(
           icon: const Icon(Icons.search, color: Colors.white),
           onPressed: () {
             // Navigate to search screen
           },
         ),
-        // Notifications with badge
         Stack(
           children: [
             IconButton(
@@ -124,7 +116,6 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
     );
   }
 
-  // Bottom Navigation Bar
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
@@ -229,14 +220,12 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
     );
   }
 
-  // Drawer Menu
   Widget _buildDrawer() {
     return Drawer(
       backgroundColor: const Color(0xFF18181b),
       child: SafeArea(
         child: Column(
           children: [
-            // Drawer Header
             Container(
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
@@ -249,7 +238,6 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
               ),
               child: Column(
                 children: [
-                  // User Avatar
                   Container(
                     width: 70,
                     height: 70,
@@ -276,7 +264,6 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Coins Display
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -309,7 +296,6 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
                 ],
               ),
             ),
-            // Drawer Items
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -371,7 +357,12 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
                     color: Colors.grey,
                     onTap: () {
                       Navigator.pop(context);
-                      // Navigate to settings
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
+                        ),
+                      );
                     },
                   ),
                   _buildDrawerItem(
@@ -403,14 +394,12 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
                     title: 'Logout',
                     color: const Color(0xFFef4444),
                     onTap: () {
-                      // Show logout confirmation
                       _showLogoutDialog();
                     },
                   ),
                 ],
               ),
             ),
-            // App Version
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
@@ -484,21 +473,20 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _logout(); // Call the logout function
+              _logout();
             },
             child: const Text(
               'Logout',
               style: TextStyle(color: Color(0xFFef4444)),
             ),
           ),
-
         ],
       ),
     );
   }
 }
 
-// Placeholder screens (replace with your actual screens)
+// Placeholder screens
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
 

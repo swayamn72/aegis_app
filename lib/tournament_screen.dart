@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
+import 'detailed_tournament_screen.dart';
 
 class TournamentScreen extends StatefulWidget {
   const TournamentScreen({super.key});
@@ -9,12 +10,7 @@ class TournamentScreen extends StatefulWidget {
 }
 
 class _TournamentScreenState extends State<TournamentScreen>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-
-  // 👇 ADD THIS - Keeps the state alive when switching tabs
-  @override
-  bool get wantKeepAlive => true;
-
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   String? _error;
   List<dynamic> _tournaments = [];
@@ -48,15 +44,25 @@ class _TournamentScreenState extends State<TournamentScreen>
     });
 
     try {
-      // Fetch all, live, and upcoming tournaments in a single call
-      final response = await ApiService.getTournaments();
+      // Fetch all tournaments using the new method
+      final allResponse = await ApiService.getAllTournaments();
 
-      if (response['error'] == false) {
-        final tournaments = response['tournaments'] as List<dynamic>? ?? [];
-        final live = response['liveTournaments'] as List<dynamic>? ?? [];
-        final upcoming = response['upcomingTournaments'] as List<dynamic>? ?? [];
+      // Fetch live tournaments
+      final liveResponse = await ApiService.getLiveTournaments();
 
-        // Extract filter options from all tournaments
+      // Fetch upcoming tournaments
+      final upcomingResponse = await ApiService.getUpcomingTournaments();
+
+      if (allResponse['error'] == false) {
+        final tournaments = allResponse['data']['tournaments'] ?? [];
+        final live = liveResponse['error'] == false
+            ? (liveResponse['data']['tournaments'] ?? [])
+            : [];
+        final upcoming = upcomingResponse['error'] == false
+            ? (upcomingResponse['data']['tournaments'] ?? [])
+            : [];
+
+        // Extract filter options
         final games = <String>{};
         final regions = <String>{};
         final statuses = <String>{};
@@ -92,7 +98,7 @@ class _TournamentScreenState extends State<TournamentScreen>
         });
       } else {
         setState(() {
-          _error = response['message'] as String? ?? 'Failed to load tournaments';
+          _error = allResponse['message'] ?? 'Failed to load tournaments';
           _isLoading = false;
         });
       }
@@ -345,9 +351,6 @@ class _TournamentScreenState extends State<TournamentScreen>
 
   @override
   Widget build(BuildContext context) {
-    // 👇 ADD THIS - Required for AutomaticKeepAliveClientMixin
-    super.build(context);
-
     if (_isLoading) {
       return Scaffold(
         backgroundColor: const Color(0xFF09090b),
@@ -692,140 +695,159 @@ class _TournamentScreenState extends State<TournamentScreen>
   Widget _buildFeaturedTournament(Map<String, dynamic> tournament) {
     final isLive = _liveTournaments.contains(tournament);
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF18181b),
-        border: Border.all(color: const Color(0xFFf97316).withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          // Live/Featured badge
-          Row(
-            children: [
-              if (isLive)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFef4444).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFef4444).withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFef4444),
-                          shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailedTournamentScreen(
+              tournamentId: tournament['_id'],
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF18181b),
+          border: Border.all(color: const Color(0xFFf97316).withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            // Live/Featured badge
+            Row(
+              children: [
+                if (isLive)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFef4444).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFef4444).withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFef4444),
+                            shape: BoxShape.circle,
+                          ),
                         ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'LIVE NOW',
+                          style: TextStyle(
+                            color: Color(0xFFef4444),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFf97316).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFf97316).withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'FEATURED',
+                      style: TextStyle(
+                        color: Color(0xFFf97316),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'LIVE NOW',
-                        style: TextStyle(
-                          color: Color(0xFFef4444),
-                          fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Tournament info
+            Row(
+              children: [
+                // Logo
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF06b6d4), Color(0xFF7c3aed)],
+                    ),
+                  ),
+                  child: tournament['media']?['logo'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            tournament['media']['logo'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.sports_esports, color: Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.sports_esports, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 12),
+                // Name and details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tournament['tournamentName'] ?? 'Unknown',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${tournament['gameTitle'] ?? 'Unknown'} • ${tournament['region'] ?? 'Unknown'}',
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 12,
                         ),
                       ),
                     ],
                   ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFf97316).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFf97316).withOpacity(0.3)),
-                  ),
-                  child: const Text(
-                    'FEATURED',
-                    style: TextStyle(
-                      color: Color(0xFFf97316),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Tournament info
-          Row(
-            children: [
-              // Logo
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF06b6d4), Color(0xFF7c3aed)],
-                  ),
-                ),
-                child: tournament['media']?['logo'] != null
-                    ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    tournament['media']['logo'],
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.sports_esports, color: Colors.white),
-                  ),
-                )
-                    : const Icon(Icons.sports_esports, color: Colors.white, size: 30),
-              ),
-              const SizedBox(width: 12),
-              // Name and details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tournament['tournamentName'] ?? 'Unknown',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${tournament['gameTitle'] ?? 'Unknown'} • ${tournament['region'] ?? 'Unknown'}',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // View Details button
-          ElevatedButton(
-            onPressed: () {
-              // Navigate to tournament details
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFf97316),
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              ],
             ),
-            child: const Text('View Details'),
-          ),
-        ],
+            const SizedBox(height: 16),
+            // View Details button
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailedTournamentScreen(
+                      tournamentId: tournament['_id'],
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFf97316),
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('View Details'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -850,7 +872,14 @@ class _TournamentScreenState extends State<TournamentScreen>
 
     return GestureDetector(
       onTap: () {
-        // Navigate to tournament details
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailedTournamentScreen(
+              tournamentId: tournament['_id'],
+            ),
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -877,17 +906,17 @@ class _TournamentScreenState extends State<TournamentScreen>
                   ),
                   child: tournament['media']?['logo'] != null
                       ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      tournament['media']['logo'],
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.sports_esports,
-                          color: Colors.white, size: 25),
-                    ),
-                  )
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            tournament['media']['logo'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.sports_esports,
+                                    color: Colors.white, size: 25),
+                          ),
+                        )
                       : const Icon(Icons.sports_esports,
-                      color: Colors.white, size: 25),
+                          color: Colors.white, size: 25),
                 ),
                 const SizedBox(width: 12),
                 // Name
@@ -927,7 +956,7 @@ class _TournamentScreenState extends State<TournamentScreen>
                 if (isLive)
                   Container(
                     padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFef4444).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -946,7 +975,7 @@ class _TournamentScreenState extends State<TournamentScreen>
                 else if (isUpcoming)
                   Container(
                     padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF06b6d4).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -963,23 +992,23 @@ class _TournamentScreenState extends State<TournamentScreen>
                     ),
                   )
                 else if (isCompleted)
-                    Container(
-                      padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        'COMPLETED',
-                        style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      'COMPLETED',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1047,7 +1076,8 @@ class _TournamentScreenState extends State<TournamentScreen>
     );
   }
 
-  Widget _buildStatColumn(IconData icon, String label, String value, Color color) {
+  Widget _buildStatColumn(
+      IconData icon, String label, String value, Color color) {
     return Column(
       children: [
         Icon(icon, color: color, size: 18),

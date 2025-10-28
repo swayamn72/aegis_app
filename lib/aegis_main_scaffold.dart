@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'aegismyprofile_screen.dart';
 import 'tournament_screen.dart';
 import 'settings_screen.dart';
+import 'chat_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Main Navigation Scaffold
@@ -26,11 +27,12 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
     }
   }
 
+  // Replace the screens list so ChatScreen is not embedded as a tab view.
   final List<Widget> _screens = [
     const FeedScreen(),
-    const TournamentScreen(),
+    const TournamentsScreen(), // use the local placeholder
     const TeamUpScreen(),
-    const MessagesScreen(),
+    const MessagesScreen(), // tapping this will push ChatScreen instead of switching body
     const AegisMyProfileScreen(),
   ];
 
@@ -151,11 +153,18 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
                 label: 'TeamUp',
                 index: 2,
               ),
+              // Messages: override onTap to open ChatScreen via Navigator.push
               _buildNavItem(
                 icon: Icons.chat_bubble_outline,
                 activeIcon: Icons.chat_bubble,
                 label: 'Messages',
                 index: 3,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ChatScreen()),
+                  );
+                },
               ),
               _buildNavItem(
                 icon: Icons.person_outline,
@@ -170,19 +179,25 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
     );
   }
 
+  // Updated to accept an optional onTap; if omitted, default behavior updates _currentIndex.
   Widget _buildNavItem({
     required IconData icon,
     required IconData activeIcon,
     required String label,
     required int index,
+    VoidCallback? onTap,
   }) {
     final isActive = _currentIndex == index;
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
+        if (onTap != null) {
+          onTap();
+        } else {
+          setState(() {
+            _currentIndex = index;
+          });
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -556,3 +571,4 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
+

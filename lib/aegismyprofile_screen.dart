@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'services/api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:aegis_app/providers/user_provider.dart';
 
 // Profile Screen
 class AegisMyProfileScreen extends StatefulWidget {
@@ -16,18 +14,15 @@ class AegisMyProfileScreen extends StatefulWidget {
 class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
-  bool _isLoading = true;
-  Map<String, dynamic>? _userData;
-  Map<String, dynamic>? _teamData;
-  List<dynamic> _connections = [];
   bool _copied = false;
+
   @override
   bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _fetchProfileData();
   }
 
   @override
@@ -36,65 +31,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     super.dispose();
   }
 
-  Future<void> _fetchProfileData() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Fetch user profile
-    final profileResponse = await ApiService.getProfile();
-
-    if (profileResponse['error'] == true) {
-      _showError(profileResponse['message']);
-      return;
-    }
-
-    final userData = profileResponse['data'];
-
-    // Fetch connections
-    final connectionsResponse = await ApiService.getConnections();
-    List<dynamic> connections = [];
-    if (connectionsResponse['error'] == false) {
-      final connectionsData = connectionsResponse['data'];
-      connections = connectionsData['connections'] ?? [];
-    }
-
-    // Fetch team data if user is in a team
-    Map<String, dynamic>? teamData;
-    if (userData['team'] != null) {
-      final teamId =
-      userData['team'] is Map ? userData['team']['_id'] : userData['team'];
-
-      final teamResponse = await ApiService.getTeam(teamId);
-      if (teamResponse['error'] == false) {
-        teamData = teamResponse['data']['team'];
-      }
-    }
-
-    setState(() {
-      _userData = userData;
-      _teamData = teamData;
-      _connections = connections;
-      _isLoading = false;
-    });
-  }
-
-  void _showError(String message) {
-    setState(() {
-      _isLoading = false;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: const Color(0xFFef4444),
-        ),
-      );
-    }
-  }
-
-  void _copyProfileLink() {
-    final username = _userData?['username'] ?? '';
+  void _copyProfileLink(String username) {
     Clipboard.setData(
         ClipboardData(text: 'https://aegis.com/player/$username'));
     setState(() {
@@ -116,7 +53,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     });
   }
 
-  void _showShareSheet() {
+  void _showShareSheet(String username) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF18181b),
@@ -156,7 +93,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
                 children: [
                   Expanded(
                     child: Text(
-                      'https://aegis.com/player/${_userData?['username'] ?? ''}',
+                      'https://aegis.com/player/$username',
                       style: TextStyle(
                         color: Colors.grey.shade400,
                         fontSize: 14,
@@ -166,7 +103,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
                   ),
                   IconButton(
                     onPressed: () {
-                      _copyProfileLink();
+                      _copyProfileLink(username);
                       Navigator.pop(context);
                     },
                     icon: const Icon(Icons.copy, color: Color(0xFF06b6d4)),
@@ -192,339 +129,365 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     );
   }
 
+  // Helper method to safely get nested values
+  dynamic _getNestedValue(dynamic obj, String path, [dynamic defaultValue]) {
+    if (obj == null) return defaultValue;
+
+    final keys = path.split('.');
+    dynamic current = obj;
+
+    for (final key in keys) {
+      if (current is Map && current.containsKey(key)) {
+        current = current[key];
+      } else {
+        return defaultValue;
+      }
+    }
+
+    return current ?? defaultValue;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF09090b),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(
-                color: Color(0xFF06b6d4),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading profile...',
-                style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
-    if (_userData == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF09090b),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline,
-                  size: 64, color: Colors.grey.shade600),
-              const SizedBox(height: 16),
-              Text(
-                'Failed to load profile',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _fetchProfileData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0891b2),
-                ),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final user = _userData!;
-    final statistics = user['statistics'] ?? {};
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF09090b),
-      body: CustomScrollView(
-        slivers: [
-          // Compact App Bar
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            backgroundColor: const Color(0xFF18181b),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0891b2),
-                      Color(0xFF7c3aed),
-                    ],
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        if (userProvider.isLoading && userProvider.currentUser == null) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF09090b),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(
+                    color: Color(0xFF06b6d4),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading profile...',
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.share),
-                onPressed: _showShareSheet,
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () {
-                  // Navigate to settings
-                },
-              ),
-            ],
-          ),
+          );
+        }
 
-          // Profile Content
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                // Profile Header - Compact
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
+        final user = userProvider.currentUser;
+
+        if (user == null) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF09090b),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline,
+                      size: 64, color: Colors.grey.shade600),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load profile',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  if (userProvider.error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        userProvider.error!,
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await userProvider.refresh();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0891b2),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final statistics = user.statistics;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF09090b),
+          body: RefreshIndicator(
+            onRefresh: () async {
+              await userProvider.refresh();
+            },
+            color: const Color(0xFF06b6d4),
+            backgroundColor: const Color(0xFF18181b),
+            child: CustomScrollView(
+              slivers: [
+                // Compact App Bar
+                SliverAppBar(
+                  expandedHeight: 120,
+                  pinned: true,
+                  backgroundColor: const Color(0xFF18181b),
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF0891b2),
+                            Color(0xFF7c3aed),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () => _showShareSheet(user.username),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings),
+                      onPressed: () {
+                        // Navigate to settings
+                      },
+                    ),
+                  ],
+                ),
+
+                SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      // Profile Picture
-                      Stack(
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFF18181b),
-                                width: 4,
+                      // Profile Header
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Column(
+                          children: [
+                            // Profile Picture
+                            Stack(
+                              children: [
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: const Color(0xFF18181b),
+                                      width: 4,
+                                    ),
+                                    gradient: user.profilePicture == null || user.profilePicture!.isEmpty
+                                        ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF06b6d4),
+                                        Color(0xFF7c3aed),
+                                      ],
+                                    )
+                                        : null,
+                                  ),
+                                  child: user.profilePicture != null && user.profilePicture!.isNotEmpty
+                                      ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      user.profilePicture!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.white,
+                                        );
+                                      },
+                                    ),
+                                  )
+                                      : const Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              user.username,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
                               ),
-                              gradient: user['profilePicture'] == null
-                                  ? const LinearGradient(
-                                colors: [
-                                  Color(0xFF06b6d4),
-                                  Color(0xFF7c3aed),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              user.realName ?? 'Not provided',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // Action Buttons
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        // Navigate to edit profile
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF0891b2),
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.edit, size: 16),
+                                      label: const Text('Edit',
+                                          style: TextStyle(fontSize: 13)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        // Create post
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF16a34a),
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.add, size: 16),
+                                      label: const Text('Post',
+                                          style: TextStyle(fontSize: 13)),
+                                    ),
+                                  ),
                                 ],
-                              )
-                                  : null,
-                            ),
-                            child: user['profilePicture'] != null
-                                ? ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
-                                user['profilePicture'],
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                                : const Icon(
-                              Icons.person,
-                              size: 40,
-                              color: Colors.white,
-                            ),
-                          ),
-                          if (user['verified'] == true)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF06b6d4),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFF18181b),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Username
-                      Text(
-                        user['username'] ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user['realName'] ?? 'Not provided',
-                        style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Action Buttons - Compact
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  // Navigate to edit profile
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0891b2),
-                                  padding:
-                                  const EdgeInsets.symmetric(vertical: 10),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.edit, size: 16),
-                                label: const Text('Edit',
-                                    style: TextStyle(fontSize: 13)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  // Create post
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF16a34a),
-                                  padding:
-                                  const EdgeInsets.symmetric(vertical: 10),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.add, size: 16),
-                                label: const Text('Post',
-                                    style: TextStyle(fontSize: 13)),
+                            const SizedBox(height: 12),
+                            // Tags
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  if (user.primaryGame != null && user.primaryGame!.isNotEmpty)
+                                    _buildTag(
+                                      user.primaryGame!,
+                                      const Color(0xFF06b6d4),
+                                    ),
+                                  if (user.teamStatus != null && user.teamStatus!.isNotEmpty)
+                                    _buildTag(
+                                      user.teamStatus!,
+                                      _getTeamStatusColor(user.teamStatus!),
+                                    ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      // Tags - Simplified
+
+                      // Stats Cards
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.center,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 1.6,
                           children: [
-                            if (user['primaryGame'] != null &&
-                                user['primaryGame'] != 'Not selected')
-                              _buildTag(
-                                user['primaryGame'],
-                                const Color(0xFF06b6d4),
-                              ),
-                            if (user['teamStatus'] != null &&
-                                user['teamStatus'] != 'Not specified')
-                              _buildTag(
-                                user['teamStatus'],
-                                _getTeamStatusColor(user['teamStatus']),
-                              ),
+                            _buildStatCard(
+                              Icons.emoji_events,
+                              'Rating',
+                              '${user.aegisRating ?? 0}',
+                              const Color(0xFF06b6d4),
+                            ),
+                            _buildStatCard(
+                              Icons.gps_fixed,
+                              'Win Rate',
+                              '${(statistics?.winRate ?? 0).toStringAsFixed(1)}%',
+                              const Color(0xFF16a34a),
+                            ),
+                            _buildStatCard(
+                              Icons.local_fire_department,
+                              'Kills',
+                              '${statistics?.totalKills ?? 0}',
+                              const Color(0xFFef4444),
+                            ),
+                            _buildStatCard(
+                              Icons.military_tech,
+                              'Matches',
+                              '${statistics?.matchesPlayed ?? 0}',
+                              const Color(0xFFf59e0b),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
 
-                // Stats Cards - 2x2 Grid
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.6,
-                    children: [
-                      _buildStatCard(
-                        Icons.emoji_events,
-                        'Rating',
-                        '${user['aegisRating'] ?? 1200}',
-                        const Color(0xFF06b6d4),
+                      // Tabs
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF18181b),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF27272a)),
+                        ),
+                        child: TabBar(
+                          controller: _tabController,
+                          labelColor: Colors.white,
+                          unselectedLabelColor: Colors.grey.shade400,
+                          indicatorColor: const Color(0xFF06b6d4),
+                          indicatorWeight: 3,
+                          labelStyle: const TextStyle(fontSize: 13),
+                          tabs: const [
+                            Tab(text: 'Stats'),
+                            Tab(text: 'Team'),
+                            Tab(text: 'Social'),
+                          ],
+                        ),
                       ),
-                      _buildStatCard(
-                        Icons.gps_fixed,
-                        'Win Rate',
-                        '${statistics['winRate'] ?? 0}%',
-                        const Color(0xFF16a34a),
-                      ),
-                      _buildStatCard(
-                        Icons.local_fire_department,
-                        'Kills',
-                        '${statistics['totalKills'] ?? 0}',
-                        const Color(0xFFef4444),
-                      ),
-                      _buildStatCard(
-                        Icons.military_tech,
-                        'Events',
-                        '${statistics['tournamentsPlayed'] ?? 0}',
-                        const Color(0xFFf59e0b),
-                      ),
-                    ],
-                  ),
-                ),
 
-                // Tabs
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF18181b),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF27272a)),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.grey.shade400,
-                    indicatorColor: const Color(0xFF06b6d4),
-                    indicatorWeight: 3,
-                    labelStyle: const TextStyle(fontSize: 13),
-                    tabs: const [
-                      Tab(text: 'Stats'),
-                      Tab(text: 'Team'),
-                      Tab(text: 'Social'),
-                    ],
-                  ),
-                ),
-
-                // Tab Content
-                SizedBox(
-                  height: 400,
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildStatsTab(statistics),
-                      _buildTeamTab(),
-                      _buildSocialTab(user),
+                      // Tab Content
+                      SizedBox(
+                        height: 400,
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildStatsTab(statistics),
+                            _buildTeamTab(user.team),
+                            _buildSocialTab(user),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -605,7 +568,16 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     );
   }
 
-  Widget _buildStatsTab(Map<String, dynamic> statistics) {
+  Widget _buildStatsTab(dynamic statistics) {
+    // Calculate K/D ratio safely
+    final totalKills = _getNestedValue(statistics, 'totalKills', 0);
+    final totalDeaths = _getNestedValue(statistics, 'totalDeaths', 1); // Default to 1 to avoid division by zero
+    final kdRatio = totalDeaths > 0 ? (totalKills / totalDeaths) : totalKills.toDouble();
+
+    // Get matches won - try both 'wins' and 'matchesWon'
+    final matchesWon = _getNestedValue(statistics, 'wins', null) ??
+        _getNestedValue(statistics, 'matchesWon', 0);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Container(
@@ -617,12 +589,11 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
         ),
         child: Column(
           children: [
-            _buildStatRow('Matches Played', '${statistics['matchesPlayed'] ?? 0}'),
-            _buildStatRow('Matches Won', '${statistics['matchesWon'] ?? 0}'),
-            _buildStatRow('Win Rate', '${statistics['winRate'] ?? 0}%'),
-            _buildStatRow('Total Kills', '${statistics['totalKills'] ?? 0}'),
-            _buildStatRow('Tournaments', '${statistics['tournamentsPlayed'] ?? 0}'),
-            _buildStatRow('Avg Placement', '#${statistics['averagePlacement'] ?? 'N/A'}'),
+            _buildStatRow('Matches Played', '${_getNestedValue(statistics, 'matchesPlayed', 0)}'),
+            _buildStatRow('Matches Won', '$matchesWon'),
+            _buildStatRow('Win Rate', '${(_getNestedValue(statistics, 'winRate', 0.0)).toStringAsFixed(1)}%'),
+            _buildStatRow('Total Kills', '${_getNestedValue(statistics, 'totalKills', 0)}'),
+            _buildStatRow('K/D Ratio', '${kdRatio.toStringAsFixed(2)}'),
           ],
         ),
       ),
@@ -655,7 +626,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     );
   }
 
-  Widget _buildTeamTab() {
+  Widget _buildTeamTab(dynamic team) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Container(
@@ -665,46 +636,29 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
           border: Border.all(color: const Color(0xFF27272a)),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: _teamData != null
+        child: team != null
             ? Column(
           children: [
-            if (_teamData!['logo'] != null)
+            // Team logo
+            if (_getNestedValue(team, 'logo', '') != null &&
+                (_getNestedValue(team, 'logo', '') as String).isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  _teamData!['logo'],
+                  _getNestedValue(team, 'logo', '') as String,
                   width: 70,
                   height: 70,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildTeamPlaceholder(team);
+                  },
                 ),
               )
             else
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF06b6d4), Color(0xFF7c3aed)],
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    _teamData!['teamName']
-                        ?.substring(0, 1)
-                        .toUpperCase() ??
-                        'T',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              _buildTeamPlaceholder(team),
             const SizedBox(height: 16),
             Text(
-              _teamData!['teamName'] ?? 'Unknown Team',
+              _getNestedValue(team, 'teamName', 'Unknown Team') as String,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -713,7 +667,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Member since ${_userData?['createdAt'] != null ? DateTime.parse(_userData!['createdAt']).year : 'Unknown'}',
+              '${_getNestedValue(team, 'memberCount', 0)} members',
               style: TextStyle(
                 color: Colors.grey.shade400,
                 fontSize: 13,
@@ -759,7 +713,33 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
     );
   }
 
-  Widget _buildSocialTab(Map<String, dynamic> user) {
+  Widget _buildTeamPlaceholder(dynamic team) {
+    final teamName = _getNestedValue(team, 'teamName', '?') as String;
+    final initial = teamName.isNotEmpty ? teamName.substring(0, 1).toUpperCase() : '?';
+
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF06b6d4), Color(0xFF7c3aed)],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialTab(dynamic user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -767,21 +747,21 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
           _buildSocialCard(
             Icons.tag,
             'Discord',
-            user['discordTag'],
+            _getNestedValue(user, 'discordTag', null),
             const Color(0xFF5865f2),
           ),
           const SizedBox(height: 10),
           _buildSocialCard(
             Icons.videocam,
             'Twitch',
-            user['twitch'],
+            _getNestedValue(user, 'twitch', null),
             const Color(0xFF9146ff),
           ),
           const SizedBox(height: 10),
           _buildSocialCard(
             Icons.play_circle,
             'YouTube',
-            user['youtube'],
+            _getNestedValue(user, 'youtube', null),
             const Color(0xFFef4444),
           ),
         ],
@@ -791,12 +771,14 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
 
   Widget _buildSocialCard(
       IconData icon, String platform, String? value, Color color) {
+    final hasValue = value != null && value.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: value != null ? color.withOpacity(0.1) : const Color(0xFF18181b),
+        color: hasValue ? color.withOpacity(0.1) : const Color(0xFF18181b),
         border: Border.all(
-          color: value != null
+          color: hasValue
               ? color.withOpacity(0.3)
               : const Color(0xFF27272a),
         ),
@@ -806,7 +788,7 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
         children: [
           Icon(
             icon,
-            color: value != null ? color : Colors.grey.shade600,
+            color: hasValue ? color : Colors.grey.shade600,
             size: 22,
           ),
           const SizedBox(width: 12),
@@ -824,17 +806,17 @@ class _AegisMyProfileScreenState extends State<AegisMyProfileScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  value ?? 'Not connected',
+                  hasValue ? value : 'Not connected',
                   style: TextStyle(
-                    color: value != null ? color : Colors.grey.shade500,
+                    color: hasValue ? color : Colors.grey.shade500,
                     fontSize: 12,
-                    fontStyle: value == null ? FontStyle.italic : null,
+                    fontStyle: hasValue ? null : FontStyle.italic,
                   ),
                 ),
               ],
             ),
           ),
-          if (value != null)
+          if (hasValue)
             Icon(
               Icons.open_in_new,
               size: 16,

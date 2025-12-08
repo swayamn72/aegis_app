@@ -84,7 +84,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _selectedAvailability = data['availability'] ?? '';
         _discordTagController.text = data['discordTag'] ?? '';
         _twitchController.text = data['twitch'] ?? '';
-        _youtubeController.text = data['YouTube'] ?? '';
+        // FIX: backend uses lowercase 'youtube' field
+        _youtubeController.text = data['youtube'] ?? '';
         _selectedProfileVisibility = data['profileVisibility'] ?? 'public';
         _selectedCardTheme = data['cardTheme'] ?? 'orange';
       });
@@ -128,28 +129,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _currentProfilePicture = uploadResult['data']['profilePicture'];
       }
 
-      // Prepare profile data
-      final profileData = {
-        'realName': _realNameController.text.trim(),
-        'age': int.tryParse(_ageController.text.trim()),
-        'location': _locationController.text.trim(),
-        'country': _selectedCountry,
-        'bio': _bioController.text.trim(),
-        'languages': _selectedLanguages,
-        'profilePicture': _currentProfilePicture,
-        'inGameName': _inGameNameController.text.trim(),
-        'primaryGame': _selectedPrimaryGame,
-        'qualifiedEvents': _qualifiedEvents,
-        'qualifiedEventDetails': _qualifiedEventDetails,
-        'inGameRole': _selectedInGameRoles,
-        'teamStatus': _selectedTeamStatus,
-        'availability': _selectedAvailability,
-        'discordTag': _discordTagController.text.trim(),
-        'twitch': _twitchController.text.trim(),
-        'YouTube': _youtubeController.text.trim(),
-        'profileVisibility': _selectedProfileVisibility,
-        'cardTheme': _selectedCardTheme,
-      };
+      // Prepare profile data: only include non-empty / non-null fields
+      final profileData = <String, dynamic>{};
+
+      void addIfPresent(String key, dynamic value) {
+        if (value == null) return;
+        if (value is String && value.trim().isEmpty) return;
+        profileData[key] = value;
+      }
+
+      addIfPresent('realName', _realNameController.text.trim());
+      addIfPresent('age', int.tryParse(_ageController.text.trim()));
+      addIfPresent('location', _locationController.text.trim());
+      addIfPresent('country', _selectedCountry.isNotEmpty ? _selectedCountry : null);
+      addIfPresent('bio', _bioController.text.trim());
+      addIfPresent('languages', _selectedLanguages.isNotEmpty ? _selectedLanguages : null);
+      addIfPresent('profilePicture', _currentProfilePicture);
+      addIfPresent('inGameName', _inGameNameController.text.trim());
+      addIfPresent('primaryGame', _selectedPrimaryGame.isNotEmpty ? _selectedPrimaryGame : null);
+      addIfPresent('qualifiedEvents', _qualifiedEvents);
+      addIfPresent('qualifiedEventDetails', _qualifiedEventDetails.isNotEmpty ? _qualifiedEventDetails : null);
+      addIfPresent('inGameRole', _selectedInGameRoles.isNotEmpty ? _selectedInGameRoles : null);
+
+      // IMPORTANT: only include enum fields if user selected a valid option (non-empty)
+      if (_selectedTeamStatus.isNotEmpty) {
+        addIfPresent('teamStatus', _selectedTeamStatus);
+      }
+      if (_selectedAvailability.isNotEmpty) {
+        addIfPresent('availability', _selectedAvailability);
+      }
+
+      addIfPresent('discordTag', _discordTagController.text.trim());
+      addIfPresent('twitch', _twitchController.text.trim());
+      addIfPresent('youtube', _youtubeController.text.trim()); // FIX: lowercase key
+      addIfPresent('profileVisibility', _selectedProfileVisibility.isNotEmpty ? _selectedProfileVisibility : null);
+      addIfPresent('cardTheme', _selectedCardTheme.isNotEmpty ? _selectedCardTheme : null);
 
       final result = await ApiService.updateProfile(profileData);
 
@@ -332,7 +346,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _buildDropdown(
                           label: 'Profile Visibility',
                           value: _selectedProfileVisibility,
-                          items: const ['public', 'friends', 'private'],
+                          // FIX: use allowed backend values only
+                          items: const ['public', 'private'],
                           hint: 'Select Visibility',
                           onChanged: (value) {
                             setState(() => _selectedProfileVisibility = value!);
@@ -348,6 +363,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             setState(() => _selectedCardTheme = value!);
                           },
                         ),
+                        const SizedBox(height: 16),
+
+                        // NEW: Team Status dropdown (backend enum)
+                        _buildDropdown(
+                          label: 'Team Status',
+                          value: _selectedTeamStatus,
+                          items: const [
+                            'looking for a team',
+                            'in a team',
+                            'open for offers'
+                          ],
+                          hint: 'Select Team Status',
+                          onChanged: (value) {
+                            setState(() => _selectedTeamStatus = value ?? '');
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // NEW: Availability dropdown (backend enum)
+                        _buildDropdown(
+                          label: 'Availability',
+                          value: _selectedAvailability,
+                          items: const [
+                            'weekends only',
+                            'evenings',
+                            'flexible',
+                            'full time'
+                          ],
+                          hint: 'Select Availability',
+                          onChanged: (value) {
+                            setState(() => _selectedAvailability = value ?? '');
+                          },
+                        ),
+
                       ],
                     ),
                   ],

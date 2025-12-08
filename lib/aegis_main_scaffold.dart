@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'aegismyprofile_screen.dart';
 import 'tournament_screen.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'TeamManagementScreen.dart';
+import 'providers/user_provider.dart';
 
 // Main Navigation Scaffold
 class AegisMainScaffold extends StatefulWidget {
@@ -18,9 +20,8 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('userData');
+    // Clear user provider data
+    await context.read<UserProvider>().clearUserProfile();
 
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/login');
@@ -239,193 +240,223 @@ class _AegisMainScaffoldState extends State<AegisMainScaffold> {
     return Drawer(
       backgroundColor: const Color(0xFF18181b),
       child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF06b6d4),
-                    Color(0xFF7c3aed),
-                  ],
-                ),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white, width: 2),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF06b6d4), Color(0xFF7c3aed)],
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 35,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'swayam1',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.monetization_on,
-                          color: Colors.amber.shade300,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          '28',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
+        child: Consumer<UserProvider>(
+          builder: (context, userProvider, child) {
+            final user = userProvider.currentUser;
+
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFF06b6d4),
+                        Color(0xFF7c3aed),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _buildDrawerItem(
-                    icon: Icons.emoji_events,
-                    title: 'Rewards & Coins',
-                    color: const Color(0xFFf59e0b),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to rewards screen
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.leaderboard,
-                    title: 'Leaderboards',
-                    color: const Color(0xFF06b6d4),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to leaderboards
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.notifications,
-                    title: 'Notifications',
-                    color: const Color(0xFFef4444),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white, width: 2),
+                          gradient: user?.profilePicture == null
+                              ? const LinearGradient(
+                                  colors: [Color(0xFF06b6d4), Color(0xFF7c3aed)],
+                                )
+                              : null,
+                        ),
+                        child: user?.profilePicture != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.network(
+                                  user!.profilePicture!,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.person,
+                                size: 35,
+                                color: Colors.white,
+                              ),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFef4444),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        '3',
-                        style: TextStyle(
+                      const SizedBox(height: 12),
+                      Text(
+                        user?.username ?? 'Loading...',
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to notifications
-                    },
-                  ),
-                  const Divider(
-                    color: Color(0xFF27272a),
-                    height: 1,
-                    indent: 16,
-                    endIndent: 16,
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.settings,
-                    title: 'Settings',
-                    color: Colors.grey,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsScreen(),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      );
-                    },
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.monetization_on,
+                              color: Colors.amber.shade300,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${user?.coins ?? 0}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  _buildDrawerItem(
-                    icon: Icons.help_outline,
-                    title: 'Help & Support',
-                    color: Colors.grey,
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to help
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.policy_outlined,
-                    title: 'Community Guidelines',
-                    color: Colors.grey,
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to guidelines
-                    },
-                  ),
-                  const Divider(
-                    color: Color(0xFF27272a),
-                    height: 1,
-                    indent: 16,
-                    endIndent: 16,
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.logout,
-                    title: 'Logout',
-                    color: const Color(0xFFef4444),
-                    onTap: () {
-                      _showLogoutDialog();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Version 1.0.0',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
                 ),
-              ),
-            ),
-          ],
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: [
+                      _buildDrawerItem(
+                        icon: Icons.emoji_events,
+                        title: 'Rewards & Coins',
+                        color: const Color(0xFFf59e0b),
+                        onTap: () {
+                          Navigator.pop(context);
+                          // Navigate to rewards screen
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.groups,
+                        title: 'Team Management',
+                        color: const Color(0xFF7c3aed),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const TeamManagementScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.leaderboard,
+                        title: 'Leaderboards',
+                        color: const Color(0xFF06b6d4),
+                        onTap: () {
+                          Navigator.pop(context);
+                          // Navigate to leaderboards
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.notifications,
+                        title: 'Notifications',
+                        color: const Color(0xFFef4444),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFef4444),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            '3',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          // Navigate to notifications
+                        },
+                      ),
+                      const Divider(
+                        color: Color(0xFF27272a),
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.settings,
+                        title: 'Settings',
+                        color: Colors.grey,
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SettingsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.help_outline,
+                        title: 'Help & Support',
+                        color: Colors.grey,
+                        onTap: () {
+                          Navigator.pop(context);
+                          // Navigate to help
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.policy_outlined,
+                        title: 'Community Guidelines',
+                        color: Colors.grey,
+                        onTap: () {
+                          Navigator.pop(context);
+                          // Navigate to guidelines
+                        },
+                      ),
+                      const Divider(
+                        color: Color(0xFF27272a),
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.logout,
+                        title: 'Logout',
+                        color: const Color(0xFFef4444),
+                        onTap: () {
+                          _showLogoutDialog();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Version 1.0.0',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -571,4 +602,3 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
-
